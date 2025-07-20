@@ -1,0 +1,22 @@
+{
+  "name": "whatsapp-group-verifier",
+  "version": "1.0.0",
+  "description": "Automated WhatsApp group join request verifier using Google Sheets.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.0",
+    "express": "^4.18.2",
+    "googleapis": "^133.0.0",
+    "puppeteer": "^24.14.0",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.31.0",
+    "winston": "^3.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
