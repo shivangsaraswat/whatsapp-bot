@@ -17,6 +17,11 @@ logs/
 credentials.json
 google-credentials.json
 
+# AWS deployment files
+*.pem
+*.key
+aws-config/
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -35,3 +40,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# PM2 files
+.pm2/
