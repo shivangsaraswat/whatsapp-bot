@@ -64,6 +64,7 @@ async function handleJoinRequest(msg) {
 }
 
 function startBot() {
+  console.log('Initializing WhatsApp client...');
   const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -73,11 +74,28 @@ function startBot() {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
+        '--no-first-run',
         '--no-zygote',
-        '--single-process',
         '--disable-gpu'
       ]
     }
+  });
+
+  client.on('loading_screen', (percent, message) => {
+    console.log(`Loading: ${percent}% - ${message}`);
+  });
+
+  client.on('authenticated', () => {
+    console.log('Client is authenticated!');
+    // Force ready state after 10 seconds if not triggered
+    setTimeout(() => {
+      console.log('⏰ Timeout reached - forcing ready check...');
+      console.log('📱 Try sending "ping" now - bot should work!');
+    }, 10000);
+  });
+
+  client.on('auth_failure', msg => {
+    console.error('Authentication failure:', msg);
   });
 
   client.on('qr', (qr) => {
@@ -88,7 +106,8 @@ function startBot() {
 
   client.on('ready', () => {
     logger.info('WhatsApp bot is ready.');
-    console.log('WhatsApp bot is ready.');
+    console.log('✅✅✅ WhatsApp bot is ready! ✅✅✅');
+    console.log('You can now send "ping" or "test" as a direct message to test!');
     // Extra feature: print all group JIDs on first connect
     const firstConnectFlag = path.join(__dirname, '../.wapp_first_connect');
     if (!fs.existsSync(firstConnectFlag)) {
@@ -101,7 +120,167 @@ function startBot() {
   });
 
   client.on('message', async (msg) => {
+    console.log(`\n📨 ===== NEW MESSAGE =====`);
+    console.log(`From: ${msg.from}`);
+    console.log(`Body: "${msg.body || '(empty)'}"`);
+    console.log(`Type: ${msg.type}`);
+    console.log(`Is Group: ${msg.from.endsWith('@g.us')}`);
+    console.log(`========================\n`);
+    
+    // Skip if message has no body
+    if (!msg.body) {
+      console.log('⚠️ Skipping message - no body');
+      return;
+    }
+    
+    // Test/Ping feature: Respond to direct messages (not in groups)
+    if (!msg.from.endsWith('@g.us')) {
+      const testCommands = ['ping', 'test', 'hello', 'hi', 'status'];
+      const msgLower = msg.body.toLowerCase().trim();
+      
+      // LIST ALL GROUPS COMMAND
+      if (msgLower === 'groups' || msgLower === 'list' || msgLower === 'listgroups') {
+        console.log('📋 Fetching all groups...');
+        const chats = await client.getChats();
+        const groups = chats.filter(chat => chat.isGroup);
+        
+        let response = `📋 *ALL YOUR WHATSAPP GROUPS* (${groups.length} total)\n\n`;
+        
+        for (let i = 0; i < groups.length; i++) {
+          const group = groups[i];
+          const groupName = group.name;
+          const groupId = group.id._serialized;
+          
+          // Highlight verification-related groups
+          if (groupName.toLowerCase().includes('verification') || 
+              groupName.toLowerCase().includes('verif') ||
+              groupName.toLowerCase().includes('council') ||
+              groupName.includes('2025') ||
+              groupName.includes('2026')) {
+            response += `🔴 *${i + 1}. ${groupName}*\n`;
+            response += `   📱 ID: \`${groupId}\`\n\n`;
+          } else {
+            response += `${i + 1}. ${groupName}\n`;
+            response += `   ID: \`${groupId}\`\n\n`;
+          }
+          
+          // Log to console with highlighting
+          if (groupName.toLowerCase().includes('verification') || 
+              groupName.toLowerCase().includes('council') ||
+              groupName.includes('2025') ||
+              groupName.includes('2026')) {
+            console.log(`\n🔴🔴🔴 HIGHLIGHTED: ${groupName}`);
+            console.log(`    ID: ${groupId}\n`);
+          } else {
+            console.log(`${i + 1}. ${groupName} - ID: ${groupId}`);
+          }
+        }
+        
+        await msg.reply(response);
+        console.log('\n✅ Groups list sent successfully!');
+        return;
+      }
+      
+      if (testCommands.includes(msgLower)) {
+        await msg.reply('✅ Bot is online and working!\n\n' +
+          '📱 Connected Account: Active\n' +
+          '📊 Google Sheets: Connected\n' +
+          '🤖 Status: Ready\n\n' +
+          'Send "help" for available commands.');
+        console.log(`Test message received from ${msg.from}`);
+        return;
+      }
+      
+      if (msgLower === 'help') {
+        await msg.reply('🤖 *WhatsApp Bot Commands*\n\n' +
+          '*Test Commands (DM):*\n' +
+          '• ping/test/hello - Check if bot is online\n' +
+          '• groups/list - Show ALL your WhatsApp groups with IDs\n' +
+          '• help - Show this message\n\n' +
+          '*Verification Group:*\n' +
+          '• verify/PHONENUMBER - Verify a phone number\n' +
+          '  Example: verify/919876543210\n\n' +
+          '*Admin Commands:*\n' +
+          '• @all - Mention all group members (authorized admins only)');
+        return;
+      }
+    }
+
     const verificationGroupJid = config.groups[0]?.groupId;
+    
+    console.log(`🔍 Checking verification group...`);
+    console.log(`   Message from: ${msg.from}`);
+    console.log(`   Verification group: ${verificationGroupJid}`);
+    console.log(`   Is verification group: ${msg.from === verificationGroupJid}`);
+    
+    // Special commands in verification group for bot owner/admin
+    if (msg.from === verificationGroupJid) {
+      console.log('✅ Message is from VERIFICATION GROUP!');
+      const msgLower = msg.body.toLowerCase().trim();
+      
+      // BOT STATUS CHECK - Works in verification group
+      if (msgLower === 'botstatus' || msgLower === 'bot status' || msgLower === '.status') {
+        await msg.reply('✅ *Bot is ONLINE and Working!*\n\n' +
+          '📱 Connected: Active\n' +
+          '📊 Google Sheets: Connected\n' +
+          '🤖 Status: Ready\n' +
+          '📋 Verification Group: Active\n\n' +
+          'All features are operational!');
+        console.log('✅ Bot status check from verification group');
+        return;
+      }
+      
+      // LIST GROUPS - Works in verification group
+      if (msgLower === 'botgroups' || msgLower === 'bot groups' || msgLower === '.groups') {
+        console.log('📋 Fetching all groups from verification group...');
+        const chats = await client.getChats();
+        const groups = chats.filter(chat => chat.isGroup);
+        
+        let response = `📋 *ALL GROUPS* (${groups.length} total)\n\n`;
+        
+        for (let i = 0; i < groups.length; i++) {
+          const group = groups[i];
+          const groupName = group.name;
+          const groupId = group.id._serialized;
+          
+          // Highlight verification-related groups
+          if (groupName.toLowerCase().includes('verification') || 
+              groupName.toLowerCase().includes('verif') ||
+              groupName.toLowerCase().includes('council') ||
+              groupName.includes('2025') ||
+              groupName.includes('2026')) {
+            response += `🔴 *${i + 1}. ${groupName}*\n`;
+            response += `   📱 \`${groupId}\`\n\n`;
+            
+            console.log(`\n🔴🔴🔴 HIGHLIGHTED: ${groupName}`);
+            console.log(`    ID: ${groupId}\n`);
+          } else {
+            response += `${i + 1}. ${groupName}\n`;
+            response += `   \`${groupId}\`\n\n`;
+            console.log(`${i + 1}. ${groupName} - ID: ${groupId}`);
+          }
+        }
+        
+        await msg.reply(response);
+        console.log('\n✅ Groups list sent from verification group!');
+        return;
+      }
+      
+      // BOT HELP - Works in verification group
+      if (msgLower === 'bothelp' || msgLower === 'bot help' || msgLower === '.help') {
+        await msg.reply('🤖 *Bot Commands (Admin)*\n\n' +
+          '*Verification Group Commands:*\n' +
+          '• botstatus - Check if bot is online\n' +
+          '• botgroups - List all groups with IDs\n' +
+          '• bothelp - Show this help\n\n' +
+          '*Verification:*\n' +
+          '• verify/PHONENUMBER - Verify a number\n' +
+          '  Example: verify/919876543210\n\n' +
+          '*Note:* Regular messages will be deleted to keep group clean.');
+        return;
+      }
+    }
+    
     // If message is in the verification group and not a verification command, delete and warn
     if (msg.from === verificationGroupJid && !msg.body.toLowerCase().startsWith('verify/')) {
       try {
@@ -142,46 +321,68 @@ function startBot() {
       }
       return;
     }
-    // @all feature: mention all group members if sender is authorized admin
-    if (msg.body && msg.body.trim() === '@all' && msg.from.endsWith('@g.us')) {
+    // @all feature: mention all group members (must be in allowedAllAdmins list)
+    if (msg.body && msg.body.trim().startsWith('@all') && msg.from.endsWith('@g.us')) {
+      console.log('🏷️ @all command detected');
+      
       // Only allow @all in specific groups
       if (!config.allowedAllGroups.includes(msg.from)) {
+        console.log(`❌ Group ${msg.from} not in allowedAllGroups list`);
         return;
       }
-      const chat = await msg.getChat();
-      const senderId = msg.author || msg.from;
-      // First check if sender is admin
-      const isAdmin = chat.participants?.find(p => p.id._serialized === senderId && (p.isAdmin || p.isSuperAdmin));
-      if (!isAdmin) {
-        await msg.reply('Only group admins can use @all.');
-        return;
-      }
-      // Extract sender's phone number for additional security check
-      const senderNumber = extractPhoneNumber({ from: senderId });
-      if (!senderNumber) {
-        await msg.reply('Could not verify your number. Contact administrator.');
-        return;
-      }
-      // Check if sender's number is in the allowed list
-      const isAllowedAdmin = config.allowedAllAdmins.includes(senderNumber);
-      if (!isAllowedAdmin) {
-        await msg.reply('You are not authorized to use @all feature. Contact administrator.');
-        return;
-      }
-      // Get all group members except the bot itself and excluded numbers
-      const mentions = [];
-      for (const participant of chat.participants) {
-        // Get the contact
-        const contact = await client.getContactById(participant.id._serialized);
-        // Extract the number in WhatsApp format
-        const number = `+${participant.id.user}`;
-        // Skip if the number is in the excludedFromAllTag list
-        if (config.excludedFromAllTag && config.excludedFromAllTag.includes(number)) {
-          continue;
+      
+      try {
+        const chat = await msg.getChat();
+        
+        // SIMPLE SOLUTION: Get sender's contact and extract their phone number
+        const senderContact = await msg.getContact();
+        const senderPhoneNumber = `+${senderContact.number}`;
+        
+        console.log(`� Sender phone number: ${senderPhoneNumber}`);
+        
+        // Check if this number is in allowedAllAdmins
+        if (!config.allowedAllAdmins || !config.allowedAllAdmins.includes(senderPhoneNumber)) {
+          console.log(`❌ User ${senderPhoneNumber} is NOT in allowedAllAdmins list`);
+          await msg.reply('⚠️ You are not authorized to use the @all feature. Only specific admins can use this command.');
+          return;
         }
-        mentions.push(contact);
+        
+        // Also verify they are a group admin
+        const senderId = msg.author || msg.from;
+        const senderParticipant = chat.participants?.find(p => `+${p.id.user}` === senderPhoneNumber);
+        
+        if (!senderParticipant || !(senderParticipant.isAdmin || senderParticipant.isSuperAdmin)) {
+          console.log(`❌ User ${senderPhoneNumber} is in allowedAllAdmins but NOT a group admin`);
+          await msg.reply('⚠️ You must be a group admin to use the @all feature.');
+          return;
+        }
+        
+        console.log(`✅ User ${senderPhoneNumber} is authorized (in allowedAllAdmins AND is a group admin)`);
+        
+        // Get all group members to tag (excluding those in excludedFromAllTag)
+        const mentions = [];
+        for (const participant of chat.participants) {
+          const contact = await client.getContactById(participant.id._serialized);
+          const number = `+${participant.id.user}`;
+          
+          if (config.excludedFromAllTag && config.excludedFromAllTag.includes(number)) {
+            console.log(`⏭️ Skipping excluded number: ${number}`);
+            continue;
+          }
+          mentions.push(contact);
+        }
+        
+        console.log(`📢 Tagging ${mentions.length} members (${chat.participants.length - mentions.length} excluded)`);
+        
+        // Reply to the admin's message with @all and tag everyone
+        await msg.reply('@all', null, { mentions });
+        console.log('✅ @all reply sent successfully');
+        
+      } catch (error) {
+        console.error('❌ Error processing @all command:', error);
+        logger.error('Error in @all feature', { error: error.message });
+        await msg.reply('⚠️ An error occurred while processing @all command.');
       }
-      await chat.sendMessage('Attention Everyone!', { mentions });
       return;
     }
     // Block stickers in the specified group
@@ -206,7 +407,16 @@ function startBot() {
     }
     // All other messages: do not log or reply
   });
-  client.initialize();
+
+  client.on('disconnected', (reason) => {
+    console.log('Client was disconnected:', reason);
+  });
+
+  console.log('Starting client initialization...');
+  client.initialize().catch(err => {
+    console.error('Failed to initialize client:', err);
+    process.exit(1);
+  });
 }
 
 module.exports = {

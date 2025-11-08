@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { authorize } = require('./services/googleSheets');
 const { startBot } = require('./services/whatsappBot');
 const winston = require('winston');
