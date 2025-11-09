@@ -1,4 +1,3 @@
-
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const config = require('../config');
 const { findNumberInSheets } = require('./googleSheets');
@@ -327,70 +326,70 @@ function startBot() {
       }
       return;
     }
-    // @all feature: mention all group members (must be in allowedAllAdmins list)
-    if (msg.body && msg.body.trim().startsWith('@all') && msg.from.endsWith('@g.us')) {
+    
+    // @all feature: Simple authorization check
+    if (msg.body && (msg.body.trim() === '@all' || msg.body.trim().startsWith('@all ')) && msg.from.endsWith('@g.us')) {
       console.log('🏷️ @all command detected');
       
-      // Only allow @all in specific groups
-      if (!config.allowedAllGroups.includes(msg.from)) {
-        console.log(`❌ Group ${msg.from} not in allowedAllGroups list`);
+      const targetGroupJid = '120363421150088277@g.us';
+      
+      // Special handling for target group - require authorization
+      if (msg.from === targetGroupJid) {
+        console.log('🎯 @all used in target group - checking authorization');
+        
+        try {
+          const senderContact = await msg.getContact();
+          const senderPhoneNumber = `+${senderContact.number}`;
+          
+          console.log(`📱 Sender: ${senderPhoneNumber}`);
+          console.log(`📋 Allowed: ${JSON.stringify(config.allowedAllAdmins)}`);
+          
+          // Check if sender is in allowedAllAdmins list
+          if (!config.allowedAllAdmins || !config.allowedAllAdmins.includes(senderPhoneNumber)) {
+            console.log(`❌ ${senderPhoneNumber} NOT authorized for @all`);
+            await msg.reply('❌ *You are not authorized to use the @all command.*\n\n_Only specific admins can use this feature in this group._');
+            return;
+          }
+          
+          console.log(`✅ ${senderPhoneNumber} authorized for @all`);
+          
+          // Get all group members to tag
+          const chat = await msg.getChat();
+          const mentions = [];
+          
+          for (const participant of chat.participants) {
+            const contact = await client.getContactById(participant.id._serialized);
+            const number = `+${participant.id.user}`;
+            
+            if (config.excludedFromAllTag && config.excludedFromAllTag.includes(number)) {
+              console.log(`⏭️ Skipping excluded: ${number}`);
+              continue;
+            }
+            mentions.push(contact);
+          }
+          
+          console.log(`📢 Tagging ${mentions.length} members`);
+          
+          // Send @all message with mentions
+          let mentionText = '📢 *Group Announcement*\n\n';
+          mentionText += mentions.map(contact => `@${contact.number}`).join(' ');
+          mentionText += '\n\n👆 Everyone has been tagged!';
+          
+          await client.sendMessage(msg.from, mentionText, { mentions });
+          console.log('✅ @all sent successfully');
+          
+        } catch (error) {
+          console.error('❌ Error in @all:', error);
+          await msg.reply('⚠️ An error occurred while processing @all.');
+        }
         return;
       }
       
-      try {
-        const chat = await msg.getChat();
-        
-        // SIMPLE SOLUTION: Get sender's contact and extract their phone number
-        const senderContact = await msg.getContact();
-        const senderPhoneNumber = `+${senderContact.number}`;
-        
-        console.log(`� Sender phone number: ${senderPhoneNumber}`);
-        
-        // Check if this number is in allowedAllAdmins
-        if (!config.allowedAllAdmins || !config.allowedAllAdmins.includes(senderPhoneNumber)) {
-          console.log(`❌ User ${senderPhoneNumber} is NOT in allowedAllAdmins list`);
-          await msg.reply('⚠️ You are not authorized to use the @all feature. Only specific admins can use this command.');
-          return;
-        }
-        
-        // Also verify they are a group admin
-        const senderId = msg.author || msg.from;
-        const senderParticipant = chat.participants?.find(p => `+${p.id.user}` === senderPhoneNumber);
-        
-        if (!senderParticipant || !(senderParticipant.isAdmin || senderParticipant.isSuperAdmin)) {
-          console.log(`❌ User ${senderPhoneNumber} is in allowedAllAdmins but NOT a group admin`);
-          await msg.reply('⚠️ You must be a group admin to use the @all feature.');
-          return;
-        }
-        
-        console.log(`✅ User ${senderPhoneNumber} is authorized (in allowedAllAdmins AND is a group admin)`);
-        
-        // Get all group members to tag (excluding those in excludedFromAllTag)
-        const mentions = [];
-        for (const participant of chat.participants) {
-          const contact = await client.getContactById(participant.id._serialized);
-          const number = `+${participant.id.user}`;
-          
-          if (config.excludedFromAllTag && config.excludedFromAllTag.includes(number)) {
-            console.log(`⏭️ Skipping excluded number: ${number}`);
-            continue;
-          }
-          mentions.push(contact);
-        }
-        
-        console.log(`📢 Tagging ${mentions.length} members (${chat.participants.length - mentions.length} excluded)`);
-        
-        // Reply to the admin's message with @all and tag everyone
-        await msg.reply('@all', null, { mentions });
-        console.log('✅ @all reply sent successfully');
-        
-      } catch (error) {
-        console.error('❌ Error processing @all command:', error);
-        logger.error('Error in @all feature', { error: error.message });
-        await msg.reply('⚠️ An error occurred while processing @all command.');
-      }
+      // For other groups - ignore silently
+      console.log(`🔇 @all used in group ${msg.from} - ignoring silently`);
       return;
     }
+    
     // Sticker blocking removed for group 120363421150088277@g.us
     // All other messages: do not log or reply
   });
