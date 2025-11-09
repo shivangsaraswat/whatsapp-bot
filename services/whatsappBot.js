@@ -327,7 +327,7 @@ function startBot() {
       return;
     }
     
-    // @all feature: Simple authorization check
+    // @all feature: Authorization check with rate limiting
     if (msg.body && (msg.body.trim() === '@all' || msg.body.trim().startsWith('@all ')) && msg.from.endsWith('@g.us')) {
       console.log('🏷️ @all command detected');
       
@@ -353,15 +353,38 @@ function startBot() {
           
           console.log(`✅ ${senderPhoneNumber} authorized for @all`);
           
-          // Get all group participants and mention them with "tagged!" message
+          // Check rate limit (3 uses per 24 hours)
+          if (!global.allTagUsage) global.allTagUsage = {};
+          const now = Date.now();
+          const userUsage = global.allTagUsage[senderPhoneNumber] || [];
+          
+          // Remove entries older than 24 hours
+          const recentUsage = userUsage.filter(timestamp => now - timestamp < 24 * 60 * 60 * 1000);
+          
+          if (recentUsage.length >= 3) {
+            const oldestUsage = Math.min(...recentUsage);
+            const resetTime = new Date(oldestUsage + 24 * 60 * 60 * 1000);
+            const hoursLeft = Math.ceil((resetTime - now) / (60 * 60 * 1000));
+            
+            await msg.reply(`❌ *Daily limit reached!*\n\nYou have used @all 3 times in the last 24 hours.\nPlease wait ${hoursLeft} hour(s) before using it again.`);
+            console.log(`❌ ${senderPhoneNumber} exceeded rate limit`);
+            return;
+          }
+          
+          // Update usage tracking
+          recentUsage.push(now);
+          global.allTagUsage[senderPhoneNumber] = recentUsage;
+          const remaining = 3 - recentUsage.length;
+          console.log(`📊 ${senderPhoneNumber} usage: ${recentUsage.length}/3 (${remaining} remaining)`);
+          
+          // Get all group participants and reply with mentions
           const chat = await msg.getChat();
           const participants = chat.participants;
           
           if (participants && participants.length > 0) {
             const mentions = participants.map(p => p.id._serialized);
-            
-            await chat.sendMessage('tagged!', { mentions });
-            console.log(`✅ Tagged ${participants.length} members with "tagged!" message`);
+            await msg.reply('tagged!', null, { mentions });
+            console.log(`✅ Tagged ${participants.length} members (${remaining} uses remaining)`);
           } else {
             await msg.reply('⚠️ Could not retrieve group participants.');
             console.log('❌ No participants found');
