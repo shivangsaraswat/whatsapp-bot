@@ -353,9 +353,20 @@ function startBot() {
           
           console.log(`✅ ${senderPhoneNumber} authorized for @all`);
           
-          // Simply reply with @all to trigger WhatsApp's native group tagging
-          await msg.reply('@all');
-          console.log('✅ @all reply sent successfully');
+          // Get all group participants and mention them with "tagged!" message
+          const chat = await msg.getChat();
+          const participants = chat.participants;
+          
+          if (participants && participants.length > 0) {
+            const mentions = participants.map(p => p.id._serialized);
+            
+            await chat.sendMessage('tagged!', { mentions });
+            console.log(`✅ Tagged ${participants.length} members with "tagged!" message`);
+          } else {
+            await msg.reply('⚠️ Could not retrieve group participants.');
+            console.log('❌ No participants found');
+          }
+          console.log('✅ @all command completed');
           
         } catch (error) {
           console.error('❌ Error in @all:', error);
