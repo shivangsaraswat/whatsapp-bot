@@ -286,23 +286,34 @@ function startBot() {
       }
     }
     
-    // If message is in the verification group and not a verification command, delete and warn
-    if (msg.from === verificationGroupJid && !msg.body.toLowerCase().startsWith('verify/')) {
-      try {
-        await msg.delete(true); // true = everyone
-      } catch (err) {
-        logger.warn('Failed to delete message:', err);
+    // Block all non-verification content in verification group (messages, stickers, GIFs, media)
+    if (msg.from === verificationGroupJid) {
+      const msgLower = msg.body ? msg.body.toLowerCase().trim() : '';
+      
+      // Allow only verification commands and bot commands
+      const isAllowedCommand = msgLower.startsWith('verify/') || 
+                               msgLower === 'botstatus' || msgLower === 'bot status' || msgLower === '.status' ||
+                               msgLower === 'botgroups' || msgLower === 'bot groups' || msgLower === '.groups' ||
+                               msgLower === 'bothelp' || msgLower === 'bot help' || msgLower === '.help';
+      
+      if (!isAllowedCommand) {
+        try {
+          await msg.delete(true); // Delete for everyone
+        } catch (err) {
+          logger.warn('Failed to delete message:', err);
+        }
+        
+        // Tag the sender with a warning
+        const contact = await msg.getContact();
+        const mention = contact;
+        await msg.getChat().then(chat => {
+          chat.sendMessage(
+            `@${contact.number} ⚠️ _This group is strictly for verification purposes. Please follow the instructions and avoid unrelated conversations._`,
+            { mentions: [mention] }
+          );
+        });
+        return;
       }
-      // Tag the sender with a warning in English
-      const contact = await msg.getContact();
-      const mention = contact;
-      await msg.getChat().then(chat => {
-        chat.sendMessage(
-          `@${contact.number} ⚠️ _This group is strictly for verification purposes. Please follow the instructions and avoid unrelated conversations._`,
-          { mentions: [mention] }
-        );
-      });
-      return;
     }
     // Only log and reply for verification-related messages or errors
     if (msg.body && msg.body.toLowerCase().startsWith('verify/')) {
