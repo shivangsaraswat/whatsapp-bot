@@ -353,30 +353,9 @@ function startBot() {
           
           console.log(`✅ ${senderPhoneNumber} authorized for @all`);
           
-          // Get all group members to tag
-          const chat = await msg.getChat();
-          const mentions = [];
-          
-          for (const participant of chat.participants) {
-            const contact = await client.getContactById(participant.id._serialized);
-            const number = `+${participant.id.user}`;
-            
-            if (config.excludedFromAllTag && config.excludedFromAllTag.includes(number)) {
-              console.log(`⏭️ Skipping excluded: ${number}`);
-              continue;
-            }
-            mentions.push(contact);
-          }
-          
-          console.log(`📢 Tagging ${mentions.length} members`);
-          
-          // Send @all message with mentions
-          let mentionText = '📢 *Group Announcement*\n\n';
-          mentionText += mentions.map(contact => `@${contact.number}`).join(' ');
-          mentionText += '\n\n👆 Everyone has been tagged!';
-          
-          await client.sendMessage(msg.from, mentionText, { mentions });
-          console.log('✅ @all sent successfully');
+          // Simply reply with @all to trigger WhatsApp's native group tagging
+          await msg.reply('@all');
+          console.log('✅ @all reply sent successfully');
           
         } catch (error) {
           console.error('❌ Error in @all:', error);
