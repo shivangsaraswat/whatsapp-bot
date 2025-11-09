@@ -391,26 +391,7 @@ function startBot() {
       }
       return;
     }
-    // Block stickers in the specified group
-    const stickerBlockGroupJid = '120363421150088277@g.us';
-    if (msg.from === stickerBlockGroupJid && msg.type === 'sticker') {
-      // Delete the sticker message
-      try {
-        await msg.delete(true);
-      } catch (err) {
-        logger.warn('Failed to delete sticker message:', err);
-      }
-      // Tag the sender with a warning
-      const contact = await msg.getContact();
-      const mention = contact;
-      await msg.getChat().then(chat => {
-        chat.sendMessage(
-          `@${contact.number} ⚠️ _Stickers are not allowed in this group. Please follow the instructions._`,
-          { mentions: [mention] }
-        );
-      });
-      return;
-    }
+    // Sticker blocking removed for group 120363421150088277@g.us
     // All other messages: do not log or reply
   });
 
