@@ -4,11 +4,19 @@ module.exports = {
       groupName: "Verification",
       groupId: '120363421079207775@g.us',
       googleSheets: [
-        '1OG4x1T6eTsUYqDm5KFHiBm8PJiBMU3yQ9Zn3Gdw67RU'
+        {
+          sheetId: '1lYlcjnIKqBqUq5lLH9wQPzayQ2Bucsx-8lXum2hiGZ4',
+          subSheetName: 'Verified' // Replace with your actual sub-sheet name (e.g., 'Students', 'Members', etc.)
+        }
+        // Add more sub-sheets if needed:
+        // {
+        //   sheetId: 'YOUR_NEW_GOOGLE_SHEET_ID_HERE',
+        //   subSheetName: 'AnotherSubSheet'
+        // }
       ]
     }
   ],
-  adminNumber: '+918439220962',
+  adminNumber: '+918218049538',
   allowedAllAdmins: ['+918439220962', '+918287675295','+917975465884'], // Fallback list if auto-detection fails
   allowedAllGroups: [
     '120363332203849781@g.us',
