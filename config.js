@@ -17,7 +17,7 @@ module.exports = {
     }
   ],
   adminNumber: '+918218049538',
-  allowedAllAdmins: ['+918439220962', '+918287675295','+917975465884'], // Fallback list if auto-detection fails
+  allowedAllAdmins: ['+918218049538','+918439220962', '+918287675295','+917975465884'], // Fallback list if auto-detection fails
   allowedAllGroups: [
     '120363332203849781@g.us',
     '919941663899-1633177842@g.us',
