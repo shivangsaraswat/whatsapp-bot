@@ -8,57 +8,8 @@ This Node.js app automates WhatsApp group join requests by verifying phone numbe
 - Phone number verification
 - @all tagging with rate limiting (3 uses per 24h)
 - Media blocking in verification groups
-- Docker support for easy deployment
 
-## Quick Start with Docker (Recommended)
-
-### Prerequisites
-- Docker and Docker Compose installed
-- Google Service Account credentials
-
-### 1. Clone Repository
-```bash
-git clone https://github.com/shivangsaraswat/whatsapp-bot.git
-cd whatsapp-bot
-```
-
-### 2. Setup Credentials
-- Place your `credentials.json` (Google Service Account) in the project root
-- Edit `config.js` with your group IDs and settings
-
-### 3. Run with Docker
-```bash
-# Start the bot
-docker-compose up -d
-
-# View logs and scan QR code
-docker-compose logs -f whatsapp-bot
-```
-
-### 4. Scan QR Code
-- QR code will appear in logs
-- Scan with your admin WhatsApp account
-- Bot will start automatically
-
-### Docker Commands
-```bash
-# Stop bot
-docker-compose down
-
-# Restart bot
-docker-compose restart
-
-# View logs
-docker-compose logs -f whatsapp-bot
-
-# Update and rebuild
-git pull
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-## Manual Setup (Without Docker)
+## Setup
 
 ### 1. Clone & Install
 ```bash
@@ -132,78 +83,21 @@ npm start
 - Warns users to keep group clean
 - Only allows `verify/` commands
 
-## Deployment
-
-### Docker (Recommended)
-Best for production deployment:
-- Persistent WhatsApp session
-- Auto-restart on failure
-- Easy updates
-- Isolated environment
-
-### Manual
-Best for development:
-- Direct access to code
-- Easier debugging
-- No Docker required
-
-## Sharing with Others
-
-### Option 1: Share Docker Image
-```bash
-# Build image
-docker build -t whatsapp-bot .
-
-# Save image
-docker save whatsapp-bot > whatsapp-bot.tar
-
-# Share the .tar file
-# Others can load it with:
-docker load < whatsapp-bot.tar
-```
-
-### Option 2: Share GitHub Repository
-```bash
-# Others clone and run:
-git clone https://github.com/shivangsaraswat/whatsapp-bot.git
-cd whatsapp-bot
-# Add credentials.json and config.js
-docker-compose up -d
-```
-
-### Option 3: Docker Hub (Public)
-```bash
-# Tag and push to Docker Hub
-docker tag whatsapp-bot yourusername/whatsapp-bot:latest
-docker push yourusername/whatsapp-bot:latest
-
-# Others can pull and run:
-docker pull yourusername/whatsapp-bot:latest
-docker run -d -v $(pwd)/credentials.json:/app/credentials.json yourusername/whatsapp-bot:latest
-```
-
 ## Troubleshooting
 
 ### QR Code Not Showing
-```bash
-docker-compose logs -f whatsapp-bot
-```
-
-### Clear Session and Re-authenticate
-```bash
-docker-compose down -v
-docker-compose up -d
-```
+- Restart the bot: `npm start`
+- Check terminal output
 
 ### Bot Not Responding
-- Check if container is running: `docker-compose ps`
-- Check logs: `docker-compose logs whatsapp-bot`
+- Check if bot is running
 - Verify credentials.json exists
 - Verify config.js is correct
+- Check logs in `./logs/app.log`
 
 ## Notes
 - Phone numbers are matched as digits only (ignore formatting)
-- WhatsApp session persists in Docker volumes
+- WhatsApp session persists in `.wwebjs_auth` directory
 - Logs are saved in `./logs` directory
 - You can add more groups and sheets in `config.js`
 
