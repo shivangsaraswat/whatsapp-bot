@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  whatsapp-bot:
+    build: .
+    container_name: whatsapp-bot
+    restart: unless-stopped
+    volumes:
+      - ./credentials.json:/app/credentials.json:ro
+      - ./config.js:/app/config.js:ro
+      - whatsapp-auth:/app/.wwebjs_auth
+      - whatsapp-cache:/app/.wwebjs_cache
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+    stdin_open: true
+    tty: true
+
+volumes:
+  whatsapp-auth:
+  whatsapp-cache:
