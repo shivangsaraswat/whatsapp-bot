@@ -3,6 +3,7 @@ module.exports = {
     {
       groupName: "Verification",
       groupId: '120363421079207775@g.us',
+      formLink: 'https://forms.google.com/your-form-link', // Add your Google Form link here
       googleSheets: [
         {
           sheetId: '1lYlcjnIKqBqUq5lLH9wQPzayQ2Bucsx-8lXum2hiGZ4',
@@ -15,6 +16,18 @@ module.exports = {
         // }
       ]
     }
+    // Add more groups for auto-approval:
+    // {
+    //   groupName: "Regional Group Name",
+    //   groupId: 'GROUP_JID_HERE@g.us',
+    //   formLink: 'https://forms.google.com/your-form-link',
+    //   googleSheets: [
+    //     {
+    //       sheetId: 'YOUR_SHEET_ID',
+    //       subSheetName: 'SheetName'
+    //     }
+    //   ]
+    // }
   ],
   adminNumber: '+918218049538',
   allowedAllAdmins: ['+918218049538','+918439220962', '+918287675295','+917975465884'], // Fallback list if auto-detection fails

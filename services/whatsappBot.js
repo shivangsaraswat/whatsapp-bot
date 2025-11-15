@@ -65,24 +65,21 @@ async function handleJoinRequest(msg) {
 function startBot() {
   console.log('Initializing WhatsApp client...');
   const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+      dataPath: '.wwebjs_auth'
+    }),
     puppeteer: {
       headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-features=TranslateUI',
-        '--disable-ipc-flooding-protection',
-        '--memory-pressure-off'
+        '--disable-gpu'
       ]
+    },
+    webVersionCache: {
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
     }
   });
 
@@ -90,17 +87,31 @@ function startBot() {
     console.log(`Loading: ${percent}% - ${message}`);
   });
 
+  let readyMessageShown = false;
+  
   client.on('authenticated', () => {
     console.log('Client is authenticated!');
     // Force ready state after 10 seconds if not triggered
-    setTimeout(() => {
-      console.log('⏰ Timeout reached - forcing ready check...');
-      console.log('📱 Try sending "ping" now - bot should work!');
-    }, 10000);
+    if (!readyMessageShown) {
+      setTimeout(() => {
+        if (!readyMessageShown) {
+          console.log('⏰ Bot authenticated - ready event pending...');
+          console.log('📱 Bot should be working now. Try sending "ping" to test!');
+          readyMessageShown = true;
+        }
+      }, 15000);
+    }
   });
 
   client.on('auth_failure', msg => {
-    console.error('Authentication failure:', msg);
+    console.error('❌ Authentication failure:', msg);
+    console.log('🔧 Cleaning corrupted session...');
+    const authPath = path.join(__dirname, '../.wwebjs_auth');
+    if (fs.existsSync(authPath)) {
+      fs.rmSync(authPath, { recursive: true, force: true });
+      console.log('✅ Session deleted. Restart bot and scan QR again.');
+    }
+    process.exit(1);
   });
 
   client.on('qr', (qr) => {
@@ -187,6 +198,7 @@ function startBot() {
       }
       
       if (testCommands.includes(msgLower)) {
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
         await msg.reply('✅ Bot is online and working!\n\n' +
           '📱 Connected Account: Active\n' +
           '📊 Google Sheets: Connected\n' +
@@ -418,8 +430,105 @@ function startBot() {
     // All other messages: do not log or reply
   });
 
+  // AUTO-APPROVE JOIN REQUESTS
+  client.on('group_join', async (notification) => {
+    try {
+      console.log('\n🚪 ===== JOIN REQUEST DETECTED =====');
+      console.log('Group ID:', notification.chatId);
+      console.log('Participant ID:', notification.id.participant);
+      
+      const groupId = notification.chatId;
+      const participantId = notification.id.participant;
+      const phoneNumber = participantId.replace('@c.us', '').replace(/\D/g, '');
+      
+      console.log(`📱 Phone Number: +${phoneNumber}`);
+      
+      // Find group config
+      const groupConfig = config.groups.find(g => g.groupId === groupId);
+      
+      if (!groupConfig) {
+        console.log('⚠️ Group not configured for auto-approval, skipping...');
+        return;
+      }
+      
+      console.log(`✅ Group found: ${groupConfig.groupName}`);
+      console.log('🔍 Verifying against Google Sheets...');
+      
+      // Verify against Google Sheets
+      const result = await findNumberInSheets(phoneNumber, groupConfig.googleSheets);
+      
+      const chat = await client.getChatById(groupId);
+      
+      if (result.error === 'sheet_load_failed') {
+        console.log('❌ Sheet load failed, cannot verify');
+        logger.error(`Join request from +${phoneNumber} - Sheet load failed`);
+        return;
+      }
+      
+      if (result.found) {
+        // APPROVE
+        console.log(`✅ VERIFIED: ${result.name} (${result.region})`);
+        await chat.addParticipants([participantId]);
+        console.log('✅ User APPROVED and added to group');
+        
+        // Send DM notification
+        try {
+          await client.sendMessage(participantId, 
+            `✅ *Welcome ${result.name}!*\n\n` +
+            `You have been approved and added to *${groupConfig.groupName}*.\n\n` +
+            `📍 Region: ${result.region}\n` +
+            `📧 Email: ${result.email}\n\n` +
+            `_You can now participate in the group._`
+          );
+          console.log('📨 Approval notification sent via DM');
+        } catch (dmErr) {
+          console.log('⚠️ Could not send DM:', dmErr.message);
+        }
+        
+        logger.info(`✅ AUTO-APPROVED: +${phoneNumber} (${result.name}) for ${groupConfig.groupName}`);
+        
+      } else {
+        // REJECT
+        console.log(`❌ NOT VERIFIED: +${phoneNumber}`);
+        await chat.removeParticipants([participantId]);
+        console.log('❌ User REJECTED and removed from group');
+        
+        // Send DM notification
+        try {
+          await client.sendMessage(participantId,
+            `❌ *Join Request Rejected*\n\n` +
+            `Your request to join *${groupConfig.groupName}* was not approved.\n\n` +
+            `*Reason:* Your phone number (+${phoneNumber}) is not registered in our system.\n\n` +
+            `📝 Please fill out the registration form first:\n` +
+            `${groupConfig.formLink || 'Contact admin for form link'}\n\n` +
+            `_After registration, you can request to join again._`
+          );
+          console.log('📨 Rejection notification sent via DM');
+        } catch (dmErr) {
+          console.log('⚠️ Could not send DM:', dmErr.message);
+        }
+        
+        logger.info(`❌ AUTO-REJECTED: +${phoneNumber} for ${groupConfig.groupName} - Not in sheets`);
+      }
+      
+      console.log('===================================\n');
+      
+    } catch (error) {
+      console.error('❌ Error handling join request:', error);
+      logger.error('Error in group_join handler:', error);
+    }
+  });
+
   client.on('disconnected', (reason) => {
-    console.log('Client was disconnected:', reason);
+    console.log('❌ Disconnected:', reason);
+    if (reason === 'LOGOUT') {
+      console.log('⚠️ WhatsApp logged out - likely anti-bot detection');
+      console.log('💡 Solutions:');
+      console.log('   1. Run bot on local machine (not cloud)');
+      console.log('   2. Use dedicated WhatsApp number');
+      console.log('   3. Delete .wwebjs_auth and restart');
+      process.exit(1);
+    }
   });
 
   console.log('Starting client initialization...');

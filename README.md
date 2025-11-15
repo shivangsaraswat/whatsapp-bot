@@ -6,6 +6,7 @@ This Node.js app automates WhatsApp group join requests by verifying phone numbe
 - WhatsApp Web automation (via `whatsapp-web.js`)
 - Google Sheets API integration
 - Phone number verification
+- **Auto-approve/reject join requests** (NEW!)
 - @all tagging with rate limiting (3 uses per 24h)
 - Media blocking in verification groups
 
@@ -25,9 +26,11 @@ npm install
 
 ### 3. Configure Groups & Sheets
 Edit `config.js`:
-- Add your WhatsApp group JIDs, invite links, and Google Sheet IDs
+- Add your WhatsApp group JIDs and Google Sheet IDs
+- Add formLink for each group (for rejection messages)
 - Set your admin WhatsApp number
 - Configure allowed admins for @all feature
+- **Important:** Bot must be admin in groups for auto-approve to work
 
 ### 4. Run the Bot
 ```bash
@@ -36,10 +39,20 @@ npm start
 - Scan the QR code with your admin WhatsApp account
 
 ## How It Works
+
+### Manual Verification (DM to Bot)
 - Users message the admin number with their join request (include group name or invite link)
 - The bot extracts their phone number and checks all linked Google Sheets for that group
 - If found, the bot replies with the group invite link
 - If not, the bot replies with a rejection and a Google Form link
+
+### Auto-Approve Join Requests (NEW!)
+- User requests to join a configured WhatsApp group
+- Bot automatically detects the join request
+- Bot verifies the user's phone number against Google Sheets
+- **If verified:** Bot auto-approves and adds user to group + sends welcome DM
+- **If not verified:** Bot auto-rejects and sends rejection DM with form link
+- All actions are logged automatically
 
 ## File Structure
 - `index.js` — Main entry
@@ -65,6 +78,15 @@ npm start
 - `@all` - Tag all group members (rate limited: 3 uses per 24 hours)
 
 ## Features Details
+
+### Auto-Approve Join Requests (NEW!)
+- Bot listens to all join requests in configured groups
+- Automatically verifies phone number against Google Sheets
+- **Auto-approves:** Adds user + sends welcome DM with details
+- **Auto-rejects:** Removes user + sends rejection DM with form link
+- No manual admin intervention needed
+- All actions logged to `./logs/app.log`
+- **Requirement:** Bot must be group admin
 
 ### Phone Number Verification
 - Checks phone numbers against Google Sheets
