@@ -70,6 +70,7 @@ function startBot() {
     }),
     puppeteer: {
       headless: true,
+      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -198,7 +199,6 @@ function startBot() {
       }
       
       if (testCommands.includes(msgLower)) {
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
         await msg.reply('✅ Bot is online and working!\n\n' +
           '📱 Connected Account: Active\n' +
           '📊 Google Sheets: Connected\n' +
